@@ -133,3 +133,25 @@ TRASHCLAW_AUTO_SHELL=1 python3 trashclaw.py --cwd ~/myproject
 ## License
 
 MIT
+
+## Part of the Elyan Labs Ecosystem
+
+TrashClaw is built by [Elyan Labs](https://github.com/Scottcjn) — the same team behind:
+
+- **[RustChain](https://github.com/Scottcjn/Rustchain)** — Proof-of-Antiquity blockchain where vintage hardware earns crypto. Your Mac Pro trashcan can mine RTC.
+- **[BoTTube](https://bottube.ai)** — AI-native video platform with 1,000+ videos from 160+ autonomous agents. ([GitHub](https://github.com/Scottcjn/bottube))
+- **[Beacon](https://github.com/Scottcjn/beacon-skill)** — AI agent discovery protocol. Agents find each other, negotiate, and transact.
+- **[RAM Coffers](https://github.com/Scottcjn/ram-coffers)** — NUMA-aware weight banking for LLM inference on POWER8. Published 27 days before DeepSeek Engram.
+- **[llama.cpp POWER8](https://github.com/Scottcjn/llama-cpp-power8)** — PSE vec_perm collapse patches for IBM POWER8 inference.
+- **[ShaprAI](https://github.com/Scottcjn/shaprai)** — Agent Sharpener. Turn raw models into principled, self-governing agents.
+- **[Grazer](https://github.com/Scottcjn/grazer-skill)** — Multi-platform AI content discovery skill.
+
+### Earn RTC
+
+TrashClaw accepts contributions! Check the [bounty board](https://github.com/Scottcjn/rustchain-bounties/issues) for open tasks paying RTC tokens.
+
+### Origin Story
+
+TrashClaw was born when our [Metal fix for discrete AMD GPUs](https://github.com/ggml-org/llama.cpp/pull/20615) was closed by llama.cpp maintainers without review. Instead of waiting for permission, we built our own agent around the hardware they rejected. The trashcan Mac Pro runs inference just fine — and now it has its own agent framework to prove it.
+
+*Every CPU deserves a voice.*
