@@ -13,7 +13,6 @@ import os
 import sys
 import json
 import subprocess
-import readline
 import urllib.request
 import urllib.error
 import re
@@ -22,6 +21,19 @@ import difflib
 import traceback
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
+
+# Windows compatibility: use pyreadline3 or skip readline
+if sys.platform == "win32":
+    try:
+        import pyreadline3 as readline
+    except ImportError:
+        # readline not available on Windows without pyreadline3
+        # Create a minimal stub to avoid errors
+        class _StubReadline:
+            def parse_and_bind(self, *args): pass
+        readline = _StubReadline()
+else:
+    import readline
 
 # ── Config ──
 LLAMA_URL = os.environ.get("TRASHCLAW_URL", "http://localhost:8080")
@@ -282,9 +294,22 @@ def tool_run_command(command: str, timeout: int = 30) -> str:
             return f"Error: Directory not found: {new_dir}"
 
     try:
+        # Cross-platform PATH handling
+        if sys.platform == "win32":
+            # Windows: PATH separator is ;, add common Windows paths
+            extra_path = ";C:\\Program Files\\Git\\usr\\bin;C:\\Windows\\System32"
+            path_sep = ";"
+        else:
+            # Unix-like: PATH separator is :
+            extra_path = ":/usr/local/bin:/usr/bin"
+            path_sep = ":"
+        
+        current_path = os.environ.get("PATH", "")
+        new_env = {**os.environ, "PATH": current_path + extra_path}
+        
         result = subprocess.run(
             command, shell=True, capture_output=True, text=True,
-            timeout=timeout, cwd=CWD, env={**os.environ, "PATH": os.environ.get("PATH", "") + ":/usr/local/bin"}
+            timeout=timeout, cwd=CWD, env=new_env
         )
         output = result.stdout
         if result.stderr:
