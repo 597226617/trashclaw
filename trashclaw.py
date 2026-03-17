@@ -13,7 +13,6 @@ import os
 import sys
 import json
 import subprocess
-import readline
 import urllib.request
 import urllib.error
 import re
@@ -22,6 +21,19 @@ import difflib
 import traceback
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
+
+# Windows compatibility: use pyreadline3 or skip readline
+if sys.platform == "win32":
+    try:
+        import pyreadline3 as readline
+    except ImportError:
+        # readline not available on Windows without pyreadline3
+        # Create a minimal stub to avoid errors
+        class _StubReadline:
+            def parse_and_bind(self, *args): pass
+        readline = _StubReadline()
+else:
+    import readline
 
 # ── Config ──
 LLAMA_URL = os.environ.get("TRASHCLAW_URL", "http://localhost:8080")
@@ -282,9 +294,22 @@ def tool_run_command(command: str, timeout: int = 30) -> str:
             return f"Error: Directory not found: {new_dir}"
 
     try:
+        # Cross-platform PATH handling
+        if sys.platform == "win32":
+            # Windows: PATH separator is ;, add common Windows paths
+            extra_path = ";C:\\Program Files\\Git\\usr\\bin;C:\\Windows\\System32"
+            path_sep = ";"
+        else:
+            # Unix-like: PATH separator is :
+            extra_path = ":/usr/local/bin:/usr/bin"
+            path_sep = ":"
+        
+        current_path = os.environ.get("PATH", "")
+        new_env = {**os.environ, "PATH": current_path + extra_path}
+        
         result = subprocess.run(
             command, shell=True, capture_output=True, text=True,
-            timeout=timeout, cwd=CWD, env={**os.environ, "PATH": os.environ.get("PATH", "") + ":/usr/local/bin"}
+            timeout=timeout, cwd=CWD, env=new_env
         )
         output = result.stdout
         if result.stderr:
@@ -832,6 +857,69 @@ def handle_slash(cmd: str) -> bool:
         HISTORY[:] = HISTORY[-10:]
         print(f"  Compacted {old_len} -> {len(HISTORY)} messages")
 
+    elif command == "/save":
+        # Save current conversation to JSON file
+        if not arg:
+            print("  Usage: /save <session_name>")
+        else:
+            session_dir = os.path.join(os.path.expanduser("~"), ".trashclaw", "sessions")
+            os.makedirs(session_dir, exist_ok=True)
+            session_file = os.path.join(session_dir, f"{arg}.json")
+            session_data = {
+                "name": arg,
+                "saved_at": datetime.now().isoformat(),
+                "cwd": CWD,
+                "history": HISTORY
+            }
+            try:
+                with open(session_file, 'w', encoding='utf-8') as f:
+                    json.dump(session_data, f, indent=2, ensure_ascii=False)
+                print(f"  Saved session to {session_file}")
+            except Exception as e:
+                print(f"  Error saving session: {e}")
+
+    elif command == "/load":
+        # Load conversation from JSON file
+        if not arg:
+            print("  Usage: /load <session_name>")
+        else:
+            session_dir = os.path.join(os.path.expanduser("~"), ".trashclaw", "sessions")
+            session_file = os.path.join(session_dir, f"{arg}.json")
+            if not os.path.exists(session_file):
+                print(f"  Error: Session '{arg}' not found")
+            else:
+                try:
+                    with open(session_file, 'r', encoding='utf-8') as f:
+                        session_data = json.load(f)
+                    HISTORY[:] = session_data.get("history", [])
+                    if "cwd" in session_data and os.path.isdir(session_data["cwd"]):
+                        CWD = session_data["cwd"]
+                    print(f"  Loaded session '{arg}' ({len(HISTORY)} messages)")
+                except Exception as e:
+                    print(f"  Error loading session: {e}")
+
+    elif command == "/sessions":
+        # List saved sessions
+        session_dir = os.path.join(os.path.expanduser("~"), ".trashclaw", "sessions")
+        if not os.path.exists(session_dir):
+            print("  No saved sessions")
+        else:
+            sessions = [f[:-5] for f in os.listdir(session_dir) if f.endswith('.json')]
+            if not sessions:
+                print("  No saved sessions")
+            else:
+                print("  Saved sessions:")
+                for name in sorted(sessions):
+                    session_file = os.path.join(session_dir, f"{name}.json")
+                    try:
+                        with open(session_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        saved_at = data.get("saved_at", "unknown")[:19]
+                        msg_count = len(data.get("history", []))
+                        print(f"    - {name} ({msg_count} messages, saved {saved_at})")
+                    except:
+                        print(f"    - {name} (unreadable)")
+
     elif command == "/help":
         print("""
   \033[1mTrashClaw Agent Commands\033[0m
@@ -840,6 +928,9 @@ def handle_slash(cmd: str) -> bool:
   /clear         Clear all conversation context
   /compact       Keep only last 10 messages (saves context)
   /status        Show server, model, and context info
+  /save <name>   Save current conversation to session file
+  /load <name>   Load conversation from session file
+  /sessions      List all saved sessions
   /exit          Exit TrashClaw
   /help          Show this help
 

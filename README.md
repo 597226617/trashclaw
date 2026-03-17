@@ -49,6 +49,20 @@ Tool calls are parsed three ways for broad model compatibility:
 
 ## Setup
 
+### Windows Installation
+
+On Windows, install the optional `pyreadline3` package for command history support:
+
+```powershell
+# Install pyreadline3 (optional, enables command history)
+pip install pyreadline3
+
+# Then run TrashClaw
+python trashclaw.py
+```
+
+Without `pyreadline3`, TrashClaw will still work but command history (up/down arrows) won't be available.
+
 ### Option 1: llama.cpp (Recommended)
 ```bash
 # Build llama.cpp
