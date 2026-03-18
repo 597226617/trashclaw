@@ -181,6 +181,46 @@ TOOLS = [
                 "required": ["thought"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_status",
+            "description": "Show git status of the working directory. Returns modified, staged, and untracked files.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_diff",
+            "description": "Show git diff of unstaged changes. Use to review what changed before committing.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "staged": {"type": "boolean", "description": "If true, show staged changes (--cached). Default: false."}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_commit",
+            "description": "Stage all changes and create a git commit with the given message.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string", "description": "Commit message"}
+                },
+                "required": ["message"]
+            }
+        }
     }
 ]
 
@@ -463,6 +503,75 @@ def tool_fetch_url(url: str) -> str:
         return f"Error fetching {url}: {str(e)}"
 
 
+def tool_git_status() -> str:
+    """Run git status in CWD."""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--short", "--branch"],
+            cwd=CWD, capture_output=True, text=True, timeout=10
+        )
+        output = result.stdout.strip()
+        if result.returncode != 0:
+            return f"git error: {result.stderr.strip()}"
+        return output if output else "Working tree clean."
+    except FileNotFoundError:
+        return "Error: git is not installed or not in PATH."
+    except Exception as e:
+        return f"Error running git status: {e}"
+
+
+def tool_git_diff(staged: bool = False) -> str:
+    """Run git diff in CWD."""
+    try:
+        cmd = ["git", "diff"]
+        if staged:
+            cmd.append("--cached")
+        result = subprocess.run(
+            cmd, cwd=CWD, capture_output=True, text=True, timeout=15
+        )
+        output = result.stdout.strip()
+        if result.returncode != 0:
+            return f"git error: {result.stderr.strip()}"
+        if not output:
+            return "No changes." if not staged else "No staged changes."
+        if len(output) > MAX_OUTPUT_CHARS:
+            return output[:MAX_OUTPUT_CHARS] + f"\n... (truncated, {len(output)} chars total)"
+        return output
+    except FileNotFoundError:
+        return "Error: git is not installed or not in PATH."
+    except Exception as e:
+        return f"Error running git diff: {e}"
+
+
+def tool_git_commit(message: str) -> str:
+    """Stage all changes and commit."""
+    try:
+        # Stage all changes
+        add_result = subprocess.run(
+            ["git", "add", "-A"],
+            cwd=CWD, capture_output=True, text=True, timeout=10
+        )
+        if add_result.returncode != 0:
+            return f"git add error: {add_result.stderr.strip()}"
+
+        # Commit
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", message],
+            cwd=CWD, capture_output=True, text=True, timeout=15
+        )
+        output = commit_result.stdout.strip()
+        if commit_result.returncode != 0:
+            stderr = commit_result.stderr.strip()
+            if "nothing to commit" in stderr or "nothing to commit" in output:
+                return "Nothing to commit — working tree clean."
+            return f"git commit error: {stderr}"
+        return output
+    except FileNotFoundError:
+        return "Error: git is not installed or not in PATH."
+    except Exception as e:
+        return f"Error running git commit: {e}"
+
+
 def tool_think(thought: str) -> str:
     return f"[Thought recorded, no side effects]"
 
@@ -478,6 +587,9 @@ TOOL_DISPATCH = {
     "list_dir": lambda args: tool_list_dir(args.get("path")),
     "fetch_url": lambda args: tool_fetch_url(args["url"]),
     "think": lambda args: tool_think(args["thought"]),
+    "git_status": lambda args: tool_git_status(),
+    "git_diff": lambda args: tool_git_diff(args.get("staged", False)),
+    "git_commit": lambda args: tool_git_commit(args["message"]),
 }
 
 
